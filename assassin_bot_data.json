@@ -1,0 +1,35 @@
+{
+  "-1002776723787": {
+    "chat_id": -1002776723787,
+    "started": false,
+    "night": 0,
+    "pending_kill_target": null,
+    "pending_save_target": null,
+    "pending_investigation_target": null,
+    "voting_open": false,
+    "votes": {},
+    "players": {
+      "1384651637": {
+        "user_id": 1384651637,
+        "name": "ᶢ𝐬 | 𝐇𝐈𝐒𝐇𝐀𝐌 -┆ ⧨♕",
+        "username": "h_i_31",
+        "role": "civilian",
+        "alive": true
+      },
+      "7494851333": {
+        "user_id": 7494851333,
+        "name": "⌯ 𝘿𝘼𝙍𝙆 🃁",
+        "username": "R_I_P10",
+        "role": "civilian",
+        "alive": true
+      },
+      "5481611179": {
+        "user_id": 5481611179,
+        "name": "︎︎︎ ︎︎︎ ︎︎︎ ︎︎︎ ︎︎︎ ︎︎︎ ︎︎",
+        "username": "Tl_Y5",
+        "role": "civilian",
+        "alive": true
+      }
+    }
+  }
+}
