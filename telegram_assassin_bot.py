@@ -182,6 +182,13 @@ async def start_cmd(upd,ctx):
     await post_panel(ctx,game)
 
 # ---------- Buttons ----------
+async def is_admin(ctx, chat_id: int, user_id: int) -> bool:
+    try:
+        member = await ctx.bot.get_chat_member(chat_id, user_id)
+        return member.status in ("administrator", "creator")
+    except Exception:
+        return False
+
 async def on_group_btn(upd,ctx):
     q = upd.callback_query
     await q.answer()
@@ -204,19 +211,28 @@ async def on_group_btn(upd,ctx):
         game.players.pop(uid,None)
         save(); await post_panel(ctx,game)
 
-    elif q.data==CB_START:
-        if len(game.players)<MIN_PLAYERS:
-            await q.answer(TEXT_AR["need"],True); return
-        ids=list(game.players.keys()); random.shuffle(ids)
-        roles=["killer","doctor","detective"]+["civilian"]*(len(ids)-3)
-        for i,uid in enumerate(ids):
-            game.players[uid].role=roles[i]
-            await ctx.bot.send_message(uid,TEXT_AR["dm_"+roles[i]])
-        game.started=True; game.night=1
-        save()
-        await ctx.bot.send_message(game.chat_id,TEXT_AR["started"])
-        await post_panel(ctx,game)
+       elif q.data == CB_PLAYERS:
+        if not await is_admin(ctx, chat_id, uid):
+            await q.answer(TEXT_AR["admins"], show_alert=True)
+            return
 
+        if not game.players:
+            await q.answer("لا يوجد لاعبين.", show_alert=True)
+            return
+
+        lines = []
+        for p in game.players.values():
+            status = "🟢" if p.alive else "⚰️"
+            lines.append(f"{status} {p.name} — {p.role}")
+
+        msg = "📜 المشاركون:\n" + "\n".join(lines)
+
+        # تنبيه تيليغرام (Alert) له حد طول، إذا طويل رح نرسله كرسالة
+        if len(msg) <= 180:
+            await q.answer(msg, show_alert=True)
+        else:
+            await ctx.bot.send_message(chat_id=chat_id, text=msg)
+            await q.answer("✅ تم إرسال القائمة في المجموعة.", show_alert=True)
 # ---------- Main ----------
 async def on_error(update, context):
     logger.exception("Update caused error: %s", context.error)
