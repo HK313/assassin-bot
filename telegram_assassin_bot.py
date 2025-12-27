@@ -101,19 +101,54 @@ def save():
             json.dump({cid:asdict(g) for cid,g in GAMES.items()},f,ensure_ascii=False,indent=2)
 
 def load():
-    if not os.path.exists(DATA_FILE): return
-    with open(DATA_FILE,"r",encoding="utf8") as f:
-        raw=json.load(f)
-    for cid,data in raw.items():
-        GAMES[int(cid)]=Game(
-            chat_id=int(cid),
-            players={int(k):Player(**v) for k,v in data["players"].items()},
-            started=data["started"],
-            night=data["night"],
+    if not os.path.exists(DATA_FILE):
+        return
+
+    with open(DATA_FILE, "r", encoding="utf8") as f:
+        raw = json.load(f)
+
+    for cid, data in raw.items():
+        cid_int = int(cid)
+
+        # دعم البيانات القديمة والجديدة
+        players_raw = data.get("players", {})
+        players_new: Dict[int, Player] = {}
+
+        for k, v in players_raw.items():
+            if isinstance(v, dict):
+                uid = v.get("uid", v.get("user_id", v.get("id")))
+                name = v.get("name", v.get("full_name", "Player"))
+                role = v.get("role", "civilian")
+                alive = v.get("alive", True)
+            else:
+                uid = int(k)
+                name = "Player"
+                role = "civilian"
+                alive = True
+
+            if uid is None:
+                try:
+                    uid = int(k)
+                except Exception:
+                    continue
+
+            players_new[int(uid)] = Player(
+                uid=int(uid),
+                name=name,
+                role=role,
+                alive=bool(alive)
+            )
+
+        GAMES[cid_int] = Game(
+            chat_id=cid_int,
+            players=players_new,
+            started=bool(data.get("started", False)),
+            night=int(data.get("night", 0)),
             panel_id=data.get("panel_id"),
             kill=data.get("kill"),
-            save=data.get("save")
+            save=data.get("save"),
         )
+
 
 # ---------- Helpers ----------
 def is_group(chat): return chat.type in (Chat.GROUP,Chat.SUPERGROUP)
