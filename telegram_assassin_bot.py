@@ -183,9 +183,17 @@ async def start_cmd(upd,ctx):
 
 # ---------- Buttons ----------
 async def on_group_btn(upd,ctx):
-    q=upd.callback_query; await q.answer()
-    game=GAMES[q.message.chat.id]
-    uid=q.from_user.id
+    q = upd.callback_query
+    await q.answer()
+
+    chat_id = q.message.chat.id
+    game = GAMES.get(chat_id)
+    if not game:
+        game = Game(chat_id, {})
+        GAMES[chat_id] = game
+        save()
+
+    uid = q.from_user.id
 
     if q.data==CB_JOIN:
         if uid not in game.players:
@@ -210,6 +218,9 @@ async def on_group_btn(upd,ctx):
         await post_panel(ctx,game)
 
 # ---------- Main ----------
+async def on_error(update, context):
+    logger.exception("Update caused error: %s", context.error)
+
 def main():
     load()
     start_health_server()
@@ -223,6 +234,8 @@ def main():
     app.add_handler(CommandHandler("start",start_cmd))
     app.add_handler(CallbackQueryHandler(on_group_btn,pattern="^g:"))
     logger.info("Bot started")
+    app.add_error_handler(on_error)
+
     app.run_polling()
 
 if __name__=="__main__":
