@@ -189,29 +189,34 @@ async def is_admin(ctx, chat_id: int, user_id: int) -> bool:
     except Exception:
         return False
 
-async def on_group_btn(upd,ctx):
+async def on_group_btn(upd, ctx):
     q = upd.callback_query
     await q.answer()
 
     chat_id = q.message.chat.id
+    uid = q.from_user.id
+
     game = GAMES.get(chat_id)
     if not game:
         game = Game(chat_id, {})
         GAMES[chat_id] = game
         save()
 
-    uid = q.from_user.id
-
-    if q.data==CB_JOIN:
+    # زر انضم
+    if q.data == CB_JOIN:
         if uid not in game.players:
-            game.players[uid]=Player(uid,q.from_user.full_name)
-            save(); await post_panel(ctx,game)
+            game.players[uid] = Player(uid=uid, name=q.from_user.full_name)
+            save()
+            await post_panel(ctx, game)
 
-    elif q.data==CB_LEAVE:
-        game.players.pop(uid,None)
-        save(); await post_panel(ctx,game)
+    # زر غادر
+    elif q.data == CB_LEAVE:
+        game.players.pop(uid, None)
+        save()
+        await post_panel(ctx, game)
 
-       elif q.data == CB_PLAYERS:
+    # زر المشاركون (Admins only)
+    elif q.data == CB_PLAYERS:
         if not await is_admin(ctx, chat_id, uid):
             await q.answer(TEXT_AR["admins"], show_alert=True)
             return
@@ -227,12 +232,68 @@ async def on_group_btn(upd,ctx):
 
         msg = "📜 المشاركون:\n" + "\n".join(lines)
 
-        # تنبيه تيليغرام (Alert) له حد طول، إذا طويل رح نرسله كرسالة
         if len(msg) <= 180:
             await q.answer(msg, show_alert=True)
         else:
             await ctx.bot.send_message(chat_id=chat_id, text=msg)
             await q.answer("✅ تم إرسال القائمة في المجموعة.", show_alert=True)
+
+    # زر بدء اللعبة
+    elif q.data == CB_START:
+        if len(game.players) < MIN_PLAYERS:
+            await q.answer(TEXT_AR["need"], show_alert=True)
+            return
+
+        ids = list(game.players.keys())
+        random.shuffle(ids)
+
+        roles = ["killer", "doctor", "detective"] + ["civilian"] * (len(ids) - 3)
+        for i, pid in enumerate(ids):
+            game.players[pid].role = roles[i]
+            game.players[pid].alive = True
+
+        game.started = True
+        game.night = 1
+        game.kill = None
+        game.save = None
+        save()
+
+        # إرسال الأدوار بالخاص
+        for pid, p in game.players.items():
+            try:
+                if p.role == "killer":
+                    await ctx.bot.send_message(pid, TEXT_AR["dm_killer"])
+                elif p.role == "doctor":
+                    await ctx.bot.send_message(pid, TEXT_AR["dm_doctor"])
+                elif p.role == "detective":
+                    await ctx.bot.send_message(pid, TEXT_AR["dm_detective"])
+                else:
+                    await ctx.bot.send_message(pid, TEXT_AR["dm_civilian"])
+            except Exception:
+                pass
+
+        await ctx.bot.send_message(chat_id, TEXT_AR["started"])
+        await ctx.bot.send_message(chat_id, TEXT_AR["night"].format(n=game.night))
+        await post_panel(ctx, game)
+
+    # زر التصويت (مبدئياً رسالة فقط عندك)
+    elif q.data == CB_VOTE:
+        await ctx.bot.send_message(chat_id, TEXT_AR["vote_start"])
+        await post_panel(ctx, game)
+
+    # زر إنهاء اللعبة
+    elif q.data == CB_END:
+        game.started = False
+        game.night = 0
+        game.kill = None
+        game.save = None
+        for p in game.players.values():
+            p.role = "civilian"
+            p.alive = True
+        save()
+        await ctx.bot.send_message(chat_id, TEXT_AR["game_ended_ok"])
+        await post_panel(ctx, game)
+
 # ---------- Main ----------
 async def on_error(update, context):
     logger.exception("Update caused error: %s", context.error)
